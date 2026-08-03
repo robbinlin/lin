@@ -2,6 +2,8 @@
 
 丟一個連結進來（YouTube、TikTok 短片，或 Facebook、LinkedIn、Google Scholar、任何網頁）——自動擷取內容、用 Claude 摘要，並自動分類收藏。單人使用的 Next.js + SQLite MVP。
 
+連結可以透過網頁表單提交，也可以直接丟進 Slack 專用頻道——機器人會即時處理並在該則訊息串回覆摘要與分類。
+
 ## 技術棧
 
 - **Next.js 16**（App Router, TypeScript）— 前端 + API routes 合一
@@ -9,6 +11,7 @@
 - **Claude API**（`@anthropic-ai/sdk`，預設 `claude-sonnet-5`）— 摘要與分類，使用結構化輸出
 - **yt-dlp** — YouTube / TikTok 字幕擷取
 - **@mozilla/readability + jsdom** — 一般網頁 / Google Scholar 正文擷取
+- **Slack Events API**（即時 webhook）— 把連結丟進指定頻道即可觸發處理，簽章驗證 + 串內回覆
 - Facebook / LinkedIn 不做自動爬取，改為手動貼上貼文文字
 
 ## 本機開發
@@ -37,7 +40,7 @@ brew install yt-dlp
 cp .env.example .env
 ```
 
-編輯 `.env`，填入你的 `ANTHROPIC_API_KEY`（[取得 API key](https://console.anthropic.com/)）。`DATABASE_URL` 預設已指向本機 SQLite 檔案，不需修改。
+編輯 `.env`，填入你的 `ANTHROPIC_API_KEY`（[取得 API key](https://console.anthropic.com/)）。`DATABASE_URL` 預設已指向本機 SQLite 檔案，不需修改。若要用 Slack 丟連結，另見下方「Slack 整合設定」填入 `SLACK_BOT_TOKEN`、`SLACK_SIGNING_SECRET`。
 
 ### 4. 建立資料庫並填入起始分類
 
@@ -54,10 +57,29 @@ npm run dev
 
 開啟 [http://localhost:3000](http://localhost:3000)。
 
+## Slack 整合設定
+
+丟連結給 Slack 機器人比開網頁貼上更順手，尤其是手機上用分享選單。設定一次即可：
+
+1. 到 [api.slack.com/apps](https://api.slack.com/apps) 建立一個新 App（From scratch），選擇你的 workspace。
+2. **OAuth & Permissions** 頁面 → Scopes → Bot Token Scopes，加入：
+   - `channels:history`（讀取頻道訊息）
+   - `chat:write`（回覆訊息）
+3. **Event Subscriptions** 頁面：
+   - 打開 Enable Events
+   - Request URL 填 `https://<你的部署網域>/api/slack/events`（本機開發可用 `ngrok http 3000` 或 `cloudflared tunnel` 開一個對外網址；Slack 會立刻打一個 `url_verification` 請求驗證，這個 App 已經處理好簽章驗證與 challenge 回覆）
+   - Subscribe to bot events → 加入 `message.channels`
+4. **Basic Information** 頁面 → App Credentials → 複製 **Signing Secret**，填入 `.env` 的 `SLACK_SIGNING_SECRET`。
+5. 回到 **OAuth & Permissions** 頁面 → Install to Workspace，安裝後複製 **Bot User OAuth Token**（`xoxb-...`），填入 `.env` 的 `SLACK_BOT_TOKEN`。
+6. 在 Slack 建一個專用頻道（例如 `#links-inbox`），把機器人加進去（`/invite @你的App名稱`）。右鍵頻道名稱 → 檢視頻道詳細資訊，複製 Channel ID，填入 `.env` 的 `SLACK_CHANNEL_ID`（選填，但建議設定，避免機器人被加進其他頻道時誤處理）。
+7. 若已部署，設定 `APP_URL` 為你的正式網址，Slack 回覆訊息會附上「查看詳情」連結。
+
+設定完成後，把任何連結丟進該頻道，機器人會在幾秒內於原訊息串回覆摘要、分類，或（Facebook/LinkedIn）提示需要補貼文字——這時直接到網頁的 `/item/[id]` 頁面補上文字即可。
+
 ## 測試
 
 ```bash
-npm test        # 單元測試（來源判斷、VTT 字幕解析）
+npm test        # 單元測試（來源判斷、VTT 字幕解析、Slack 簽章驗證與連結擷取）
 npm run build   # 型別檢查 + production build
 npm run lint    # ESLint
 ```
@@ -69,8 +91,9 @@ npm run lint    # ESLint
 部署主機需要：
 1. Node.js 20+
 2. `yt-dlp` 二進位檔（`apt install yt-dlp` 或 `pip install yt-dlp`）
-3. 環境變數：`DATABASE_URL`、`ANTHROPIC_API_KEY`、`CLAUDE_MODEL`（選填）、`YT_DLP_PATH`（選填）
+3. 環境變數：`DATABASE_URL`、`ANTHROPIC_API_KEY`、`CLAUDE_MODEL`（選填）、`YT_DLP_PATH`（選填）、`SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET`（若要用 Slack 整合）、`SLACK_CHANNEL_ID`/`APP_URL`（選填）
 4. 部署後執行一次 `npx prisma migrate deploy && npx prisma db seed`
+5. 若要用 Slack 整合，部署完成、拿到正式網域後，回到 Slack App 設定頁把 Event Subscriptions 的 Request URL 指向 `https://<正式網域>/api/slack/events`
 
 ## 專案結構
 
@@ -79,8 +102,9 @@ prisma/schema.prisma       # Link / Category 資料表定義
 prisma/seed.ts             # 起始分類清單
 src/lib/extract/           # 依來源型別擷取內容（YouTube/TikTok/一般網頁/手動貼文）
 src/lib/llm/               # Claude 摘要 + 分類（含動態分類建立）
+src/lib/slack/             # Slack 簽章驗證、連結擷取、回覆訊息
 src/lib/pipeline.ts        # 擷取 + LLM 的完整處理流程
-src/app/api/                # REST API：/api/links, /api/categories
+src/app/api/                # REST API：/api/links, /api/categories, /api/slack/events
 src/app/                    # 首頁（提交）、/library（瀏覽/搜尋/篩選）、/item/[id]（詳情）
 ```
 
@@ -88,6 +112,7 @@ src/app/                    # 首頁（提交）、/library（瀏覽/搜尋/篩�
 
 - 無字幕影片不做語音轉文字（可能之後加 Whisper API）
 - Facebook/LinkedIn 不自動爬取，需手動貼上文字（長期方案，非過渡措施）
-- 無瀏覽器擴充功能 / App / 分享選單整合
+- 無瀏覽器擴充功能 / App 分享選單整合（Slack 頻道是目前的低摩擦入口）
 - 單人使用，無登入機制——若要公開部署，需自行加上存取控制
 - 同步處理（提交當下直接跑完擷取+摘要），未使用非同步 job queue
+- Slack 端沒有針對 retry 事件做去重表，靠 `Link.url` 的 unique constraint 避免重複建立資料（見 `src/app/api/slack/events/route.ts`）
