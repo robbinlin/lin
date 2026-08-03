@@ -1,0 +1,70 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Link {
+  id         String  @id @default(cuid())
+  url        String  @unique
+  sourceType SourceType
+  title      String?
+  manualText String?
+
+  extractionStatus ExtractionStatus @default(PENDING)
+  extractionError  String?
+  rawContent       String?
+  extractedAt      DateTime?
+
+  llmStatus LLMStatus @default(PENDING)
+  llmError  String?
+  summary   String?
+  keyPoints String?
+  tags      String?
+  language  String?
+
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([extractionStatus])
+  @@index([llmStatus])
+  @@index([categoryId])
+}
+
+model Category {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  slug      String   @unique
+  isSeeded  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  links     Link[]
+}
+
+enum SourceType {
+  YOUTUBE
+  TIKTOK
+  FACEBOOK
+  LINKEDIN
+  GOOGLE_SCHOLAR
+  GENERIC_WEB
+}
+
+enum ExtractionStatus {
+  PENDING
+  SUCCESS
+  PARTIAL
+  FAILED
+  NEEDS_MANUAL
+}
+
+enum LLMStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
