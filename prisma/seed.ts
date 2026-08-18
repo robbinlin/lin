@@ -2,9 +2,16 @@ import { prisma } from "../src/lib/db";
 
 const STARTER_CATEGORIES = [
   "親子",
+  "育兒",
+  "三餐",
+  "室外遊玩",
+  "室內遊玩",
+  "婚姻",
   "理財",
   "學術研究",
   "AI工具",
+  "Chatgpt",
+  "Claude",
   "科技",
   "健康",
   "職涯發展",
