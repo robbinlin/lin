@@ -45,19 +45,24 @@ export function ItemActions({ item }: { item: LinkItem }) {
     }
   }
 
+  const needsManual = item.extractionStatus === "NEEDS_MANUAL";
+  const extractionFailed = item.extractionStatus === "FAILED";
+
   return (
     <div className="mt-6 flex flex-col gap-4">
-      {item.extractionStatus === "NEEDS_MANUAL" && (
+      {(needsManual || extractionFailed) && (
         <form onSubmit={submitManualText} className="flex flex-col gap-2 rounded-lg border border-orange-200 bg-orange-50 p-4">
           <label className="text-sm font-medium text-orange-800">
-            這個來源需要手動貼上貼文文字才能摘要
+            {needsManual
+              ? "這個來源需要手動貼上貼文文字才能摘要"
+              : "自動擷取失敗，你也可以改貼上文字內容繼續摘要（例如 TikTok 抓不到時）"}
           </label>
           <textarea
             value={manualText}
             onChange={(e) => setManualText(e.target.value)}
             rows={4}
             className="rounded-md border border-gray-300 px-3 py-2 text-sm"
-            placeholder="貼上貼文文字…"
+            placeholder="貼上文字內容…"
           />
           <button
             type="submit"
@@ -69,7 +74,7 @@ export function ItemActions({ item }: { item: LinkItem }) {
         </form>
       )}
 
-      {(item.extractionStatus === "FAILED" || item.llmStatus === "FAILED") && (
+      {(extractionFailed || item.llmStatus === "FAILED") && (
         <button
           onClick={retry}
           disabled={busy}

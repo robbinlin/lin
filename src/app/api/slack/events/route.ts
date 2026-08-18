@@ -96,7 +96,8 @@ function formatSlackReply(link: {
     return `⚠️ *${link.url}*\n這個來源（Facebook/LinkedIn）需要手動貼上貼文文字才能摘要。${detailLink}`;
   }
   if (link.extractionStatus === "FAILED") {
-    return `❌ *${link.url}*\n擷取失敗：${link.extractionError ?? "未知錯誤"}`;
+    const manualHint = appUrl ? `\n可以到<${appUrl}/item/${link.id}|詳情頁>手動貼上文字內容改用貼上內容摘要。` : "";
+    return `❌ *${link.url}*\n擷取失敗：${link.extractionError ?? "未知錯誤"}${manualHint}`;
   }
   if (link.llmStatus === "FAILED") {
     return `⚠️ *${link.title ?? link.url}*\n內容已擷取，但摘要失敗：${link.llmError ?? "未知錯誤"}${detailLink}`;
