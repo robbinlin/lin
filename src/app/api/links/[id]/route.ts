@@ -18,10 +18,26 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const { id } = await params;
   const body = await request.json();
   const manualText = typeof body.manualText === "string" ? body.manualText : undefined;
+  // categoryId lets the UI quick-categorize a link with no extracted content
+  // at all (e.g. TikTok/Facebook that couldn't be read) — it's a plain field
+  // update, deliberately not routed through processLink().
+  const categoryId = Object.prototype.hasOwnProperty.call(body, "categoryId")
+    ? (body.categoryId as string | null)
+    : undefined;
 
   const existing = await prisma.link.findUnique({ where: { id } });
   if (!existing) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
+  }
+
+  if (categoryId !== undefined) {
+    if (categoryId !== null) {
+      const category = await prisma.category.findUnique({ where: { id: categoryId } });
+      if (!category) {
+        return NextResponse.json({ error: "Category not found" }, { status: 400 });
+      }
+    }
+    await prisma.link.update({ where: { id }, data: { categoryId } });
   }
 
   if (manualText !== undefined) {

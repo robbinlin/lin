@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/db";
 import { serializeLink } from "@/lib/serialize";
+import { getCategoriesWithCount } from "@/lib/getCategoriesWithCount";
 import { ItemCard } from "@/components/ItemCard";
 import { CategoryFilter } from "@/components/CategoryFilter";
 import { SearchBar } from "@/components/SearchBar";
@@ -23,7 +24,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
     ];
   }
 
-  const [items, total, categories] = await Promise.all([
+  const [items, total, categoriesWithCount] = await Promise.all([
     prisma.link.findMany({
       where,
       include: { category: true },
@@ -32,19 +33,8 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
       take: limit,
     }),
     prisma.link.count({ where }),
-    prisma.category.findMany({
-      orderBy: { name: "asc" },
-      include: { _count: { select: { links: true } } },
-    }),
+    getCategoriesWithCount(),
   ]);
-
-  const categoriesWithCount = categories.map((c) => ({
-    id: c.id,
-    name: c.name,
-    slug: c.slug,
-    isSeeded: c.isSeeded,
-    count: c._count.links,
-  }));
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
 

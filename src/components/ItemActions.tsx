@@ -2,9 +2,16 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import type { LinkItem } from "@/types";
+import type { CategoryWithCount, LinkItem } from "@/types";
+import { CategoryQuickPick } from "./CategoryQuickPick";
 
-export function ItemActions({ item }: { item: LinkItem }) {
+export function ItemActions({
+  item,
+  categories,
+}: {
+  item: LinkItem;
+  categories: CategoryWithCount[];
+}) {
   const router = useRouter();
   const [manualText, setManualText] = useState(item.manualText ?? "");
   const [busy, setBusy] = useState(false);
@@ -50,6 +57,10 @@ export function ItemActions({ item }: { item: LinkItem }) {
 
   return (
     <div className="mt-6 flex flex-col gap-4">
+      {(needsManual || extractionFailed) && !item.category && (
+        <CategoryQuickPick linkId={item.id} categories={categories} />
+      )}
+
       {(needsManual || extractionFailed) && (
         <form onSubmit={submitManualText} className="flex flex-col gap-2 rounded-lg border border-orange-200 bg-orange-50 p-4">
           <label className="text-sm font-medium text-orange-800">

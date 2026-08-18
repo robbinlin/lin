@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { serializeLink } from "@/lib/serialize";
+import { getCategoriesWithCount } from "@/lib/getCategoriesWithCount";
 import { ExtractionStatusBadge, LLMStatusBadge } from "@/components/StatusBadge";
 import { ItemActions } from "@/components/ItemActions";
 
@@ -14,6 +15,7 @@ export default async function ItemPage({ params }: { params: Params }) {
   if (!link) notFound();
 
   const item = serializeLink(link);
+  const categories = await getCategoriesWithCount();
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
@@ -71,7 +73,7 @@ export default async function ItemPage({ params }: { params: Params }) {
         </div>
       )}
 
-      <ItemActions item={item} />
+      <ItemActions item={item} categories={categories} />
     </div>
   );
 }
