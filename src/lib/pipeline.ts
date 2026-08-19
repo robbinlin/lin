@@ -35,7 +35,14 @@ export async function processLink(linkId: string): Promise<void> {
       content: extraction.content,
     });
 
-    const category = await findOrCreateCategory(result.category);
+    // A category picked by the user at submit time (or via quick-categorize)
+    // always wins — the LLM's classification only fills in categoryId when
+    // nothing was chosen yet.
+    let categoryId = link.categoryId;
+    if (!categoryId) {
+      const category = await findOrCreateCategory(result.category);
+      categoryId = category.id;
+    }
 
     await prisma.link.update({
       where: { id: linkId },
@@ -46,7 +53,7 @@ export async function processLink(linkId: string): Promise<void> {
         keyPoints: JSON.stringify(result.keyPoints),
         tags: JSON.stringify(result.tags),
         language: result.language,
-        categoryId: category.id,
+        categoryId,
       },
     });
   } catch (err) {

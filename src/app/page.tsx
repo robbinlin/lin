@@ -1,16 +1,20 @@
 import { prisma } from "@/lib/db";
 import { serializeLink } from "@/lib/serialize";
+import { getCategoriesWithCount } from "@/lib/getCategoriesWithCount";
 import { SubmitForm } from "@/components/SubmitForm";
 import { ItemCard } from "@/components/ItemCard";
 
 export const dynamic = "force-dynamic";
 
 export default async function Home() {
-  const recent = await prisma.link.findMany({
-    orderBy: { createdAt: "desc" },
-    take: 8,
-    include: { category: true },
-  });
+  const [recent, categories] = await Promise.all([
+    prisma.link.findMany({
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      include: { category: true },
+    }),
+    getCategoriesWithCount(),
+  ]);
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
@@ -20,7 +24,7 @@ export default async function Home() {
       </p>
 
       <div className="mt-6">
-        <SubmitForm />
+        <SubmitForm categories={categories} />
       </div>
 
       {recent.length > 0 && (

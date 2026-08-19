@@ -8,9 +8,17 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const rawUrl = typeof body.url === "string" ? body.url : "";
   const manualText = typeof body.manualText === "string" ? body.manualText : null;
+  const categoryId = typeof body.categoryId === "string" ? body.categoryId : null;
 
   if (!isValidUrl(rawUrl)) {
     return NextResponse.json({ error: "A valid http(s) URL is required" }, { status: 400 });
+  }
+
+  if (categoryId) {
+    const category = await prisma.category.findUnique({ where: { id: categoryId } });
+    if (!category) {
+      return NextResponse.json({ error: "Category not found" }, { status: 400 });
+    }
   }
 
   const url = normalizeUrl(rawUrl);
@@ -21,8 +29,12 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "This URL has already been saved", id: existing.id }, { status: 409 });
   }
 
+  // A category picked at submit time (e.g. via the quick hashtag picker) is
+  // preserved through processLink() below even if extraction/LLM succeeds —
+  // see pipeline.ts, which only lets the LLM's classification apply when no
+  // category was set yet.
   const link = await prisma.link.create({
-    data: { url, sourceType, manualText },
+    data: { url, sourceType, manualText, categoryId },
   });
 
   await processLink(link.id);

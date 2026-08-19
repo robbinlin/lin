@@ -3,13 +3,15 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { detectSourceType } from "@/lib/url";
-import type { LinkItem } from "@/types";
+import type { CategoryWithCount, LinkItem } from "@/types";
 import { ExtractionStatusBadge, LLMStatusBadge } from "./StatusBadge";
+import { CategoryPicker } from "./CategoryPicker";
 
-export function SubmitForm() {
+export function SubmitForm({ categories }: { categories: CategoryWithCount[] }) {
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [manualText, setManualText] = useState("");
+  const [categoryId, setCategoryId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<LinkItem | null>(null);
@@ -27,7 +29,11 @@ export function SubmitForm() {
       const res = await fetch("/api/links", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, manualText: manualText || undefined }),
+        body: JSON.stringify({
+          url,
+          manualText: manualText || undefined,
+          categoryId: categoryId || undefined,
+        }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -37,6 +43,7 @@ export function SubmitForm() {
       setResult(data as LinkItem);
       setUrl("");
       setManualText("");
+      setCategoryId(null);
       router.refresh();
     } catch {
       setError("網路錯誤，請稍後再試");
@@ -75,6 +82,13 @@ export function SubmitForm() {
             className="rounded-lg border border-gray-300 px-4 py-2 text-sm focus:border-blue-500 focus:outline-none"
           />
         )}
+
+        <div className="flex flex-col gap-1.5">
+          <span className="text-xs text-gray-500">
+            先選好分類（選填）——就算之後內容抓不到、AI 也無法摘要，這個分類還是會保留
+          </span>
+          <CategoryPicker categories={categories} selectedId={categoryId} onSelect={setCategoryId} />
+        </div>
       </form>
 
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
