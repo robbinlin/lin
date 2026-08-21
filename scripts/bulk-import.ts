@@ -14,6 +14,10 @@
  *            for a quick sanity check before committing to a big run)
  *   --delay  Milliseconds to wait between items (default: 1500)
  */
+// Standalone tsx scripts don't get .env auto-loaded the way `next dev`/`build`
+// does — load it explicitly so ANTHROPIC_API_KEY etc. are set before the
+// modules below (db.ts, summarize.ts) read process.env at import time.
+import "dotenv/config";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
 import { prisma } from "../src/lib/db";

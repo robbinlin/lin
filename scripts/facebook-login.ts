@@ -20,6 +20,9 @@
  *
  * Usage: npm run facebook:login
  */
+// Standalone tsx scripts don't get .env auto-loaded the way `next dev`/`build`
+// does — load it explicitly so FACEBOOK_SESSION_PATH etc. are respected.
+import "dotenv/config";
 import { chromium } from "playwright";
 import { createInterface } from "node:readline/promises";
 

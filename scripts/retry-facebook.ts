@@ -15,6 +15,10 @@
  *   npm run retry:facebook -- --limit 20   # sanity-check a small batch first
  *   npm run retry:facebook -- --delay 3000 # slower, gentler pacing
  */
+// Standalone tsx scripts don't get .env auto-loaded the way `next dev`/`build`
+// does — load it explicitly so ANTHROPIC_API_KEY etc. are set before the
+// modules below (db.ts, summarize.ts) read process.env at import time.
+import "dotenv/config";
 import { prisma } from "../src/lib/db";
 import { processLink } from "../src/lib/pipeline";
 import { isFacebookPlaywrightConfigured } from "../src/lib/extract/facebookPlaywright";
