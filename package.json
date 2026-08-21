@@ -12,7 +12,8 @@
     "db:migrate": "prisma migrate dev && prisma generate",
     "db:seed": "prisma db seed",
     "import:bulk": "tsx scripts/bulk-import.ts",
-    "facebook:login": "tsx scripts/facebook-login.ts"
+    "facebook:login": "tsx scripts/facebook-login.ts",
+    "retry:facebook": "tsx scripts/retry-facebook.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

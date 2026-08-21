@@ -101,6 +101,14 @@ npm run facebook:login
 
 **部署時注意：** Playwright 需要下載瀏覽器執行檔（`npx playwright install chromium`，約 100-300MB），部署到 VPS 時記得執行這一步；且這個功能只在你已經在該主機上跑過 `npm run facebook:login` 存好 session 後才會啟用。
 
+**補跑先前擷取失敗/待補文字的 Facebook 連結：** 設定好 session 之後，之前存進資料庫、狀態還卡在「擷取失敗」或「待補文字」的 Facebook 連結不會自動重跑，需要手動觸發。單筆的話可以到 `/item/[id]` 點「重試」；一次要補一大批的話可以跑：
+
+```bash
+npm run retry:facebook
+```
+
+會找出所有 `sourceType` 是 Facebook、且狀態仍是「擷取失敗」或「待補文字」的連結，依序重新走一次擷取＋摘要流程（跟前面「批次匯入」一樣，可安全中斷、重複執行；沒 session 或抓不到內容的連結會維持原狀，不會被覆寫成錯誤資料）。同樣支援 `--limit`（先跑一小批確認）與 `--delay`（預設 2000ms）。
+
 ## Slack 整合設定
 
 丟連結給 Slack 機器人比開網頁貼上更順手，尤其是手機上用分享選單。設定一次即可：
