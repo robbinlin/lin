@@ -12,7 +12,8 @@
 - **yt-dlp** — YouTube / TikTok 字幕擷取
 - **@mozilla/readability + jsdom** — 一般網頁 / Google Scholar 正文擷取
 - **Slack Events API**（即時 webhook）— 把連結丟進指定頻道即可觸發處理，簽章驗證 + 串內回覆
-- Facebook / LinkedIn 不做自動爬取，改為手動貼上貼文文字
+- Facebook 預設不自動爬取，改為手動貼上貼文文字；可選擇性啟用 **Playwright**（見下方「⚠️ Facebook 內容擷取」）用你自己登入的帳號嘗試自動擷取，失敗時仍會退回手動貼文字
+- LinkedIn 不做自動爬取，改為手動貼上貼文文字
 
 ## 本機開發
 
@@ -74,6 +75,32 @@ npm run dev
 4. 連結量大、又混了很多 TikTok 時，預期會有不少筆落在「擷取失敗」或「待補文字」——這是正常的（見上面「TikTok/Facebook 抓不到內容」的討論），跑完之後可以到 `/library` 用「快速分類」把這些先歸類，之後有空再回來補內容。
 5. 全部跑完後可以把 `scripts/bulk-import-urls.txt` 清空或刪除，它只是一次性的匯入清單，不影響其他功能。
 
+## ⚠️ Facebook 內容擷取（實驗性，會用到你自己的帳號）
+
+**先讀完這一段風險說明，再決定要不要用。**
+
+預設情況下 Facebook 連結一律走「手動貼文字」——這是刻意的設計，因為 Facebook 的貼文/分享連結幾乎都需要登入才能看。這裡提供一個**選用**的替代方案：用 [Playwright](https://playwright.dev/) 重複使用你自己瀏覽器登入 Facebook 後的 session，讓伺服器端能像真人一樣看到已登入的內容，不用每次手動貼文字。
+
+**風險（自己評估要不要接受）：**
+- 用自動化程式重複使用登入 session 去抓取內容，**違反 Facebook 服務條款**
+- Facebook 可能偵測到、限制帳號功能，甚至要求驗證或封鎖帳號——**建議用一個你不介意被限制的次要帳號**，不要用主帳號
+- 存下來的 session 檔案等同於你的登入憑證，外流等於帳號被盜——已加進 `.gitignore`，但**絕對不要**把 `facebook-session.json` 分享給任何人或上傳到任何地方
+- Session 會過期，過期後這條路徑會自動失敗、退回手動貼文字（不會讓程式崩潰），但你需要重新登入一次
+
+**設定方式（選用）：**
+
+```bash
+npm run facebook:login
+```
+
+會跳出一個真的瀏覽器視窗，你自己在裡面手動輸入帳密登入 Facebook（這個腳本完全看不到、也不經手你的密碼）。登入成功、看得到動態消息後，回到終端機按 Enter，session 就會存到本機的 `facebook-session.json`。
+
+存好之後，Facebook 連結會**優先**嘗試用這個 session 自動擷取內容；失敗（session 過期、被導去登入頁、抓不到文字）時會自動退回原本的手動貼文字流程，不影響既有功能。
+
+**不想用了怎麼辦：** 刪除 `facebook-session.json` 即可，系統會自動偵測不到 session、退回預設的手動貼文字模式。
+
+**部署時注意：** Playwright 需要下載瀏覽器執行檔（`npx playwright install chromium`，約 100-300MB），部署到 VPS 時記得執行這一步；且這個功能只在你已經在該主機上跑過 `npm run facebook:login` 存好 session 後才會啟用。
+
 ## Slack 整合設定
 
 丟連結給 Slack 機器人比開網頁貼上更順手，尤其是手機上用分享選單。設定一次即可：
@@ -108,16 +135,17 @@ npm run lint    # ESLint
 部署主機需要：
 1. Node.js 20+
 2. `yt-dlp` 二進位檔（`apt install yt-dlp` 或 `pip install yt-dlp`）
-3. 環境變數：`DATABASE_URL`、`ANTHROPIC_API_KEY`、`CLAUDE_MODEL`（選填）、`YT_DLP_PATH`（選填）、`SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET`（若要用 Slack 整合）、`SLACK_CHANNEL_ID`/`APP_URL`（選填）
+3. 環境變數：`DATABASE_URL`、`ANTHROPIC_API_KEY`、`CLAUDE_MODEL`（選填）、`YT_DLP_PATH`（選填）、`SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET`（若要用 Slack 整合）、`SLACK_CHANNEL_ID`/`APP_URL`（選填）、`FACEBOOK_SESSION_PATH`（選填，若要用 Facebook Playwright 擷取）
 4. 部署後執行一次 `npx prisma migrate deploy && npx prisma db seed`
 5. 若要用 Slack 整合，部署完成、拿到正式網域後，回到 Slack App 設定頁把 Event Subscriptions 的 Request URL 指向 `https://<正式網域>/api/slack/events`
+6. 若要用 Facebook Playwright 擷取，在該主機上執行 `npx playwright install chromium` 裝瀏覽器執行檔，再跑一次 `npm run facebook:login` 存 session（見上方「⚠️ Facebook 內容擷取」）
 
 ## 專案結構
 
 ```
 prisma/schema.prisma       # Link / Category 資料表定義
 prisma/seed.ts             # 起始分類清單
-src/lib/extract/           # 依來源型別擷取內容（YouTube/TikTok/一般網頁/手動貼文）
+src/lib/extract/           # 依來源型別擷取內容（YouTube/TikTok/一般網頁/手動貼文/Facebook Playwright）
 src/lib/llm/               # Claude 摘要 + 分類（含動態分類建立）
 src/lib/slack/             # Slack 簽章驗證、連結擷取、回覆訊息
 src/lib/pipeline.ts        # 擷取 + LLM 的完整處理流程
@@ -128,7 +156,8 @@ src/app/                    # 首頁（提交）、/library（瀏覽/搜尋/篩�
 ## MVP 範圍外（已知限制）
 
 - 無字幕影片不做語音轉文字（可能之後加 Whisper API）
-- Facebook/LinkedIn 不自動爬取，需手動貼上文字（長期方案，非過渡措施）
+- Facebook 預設不自動爬取，需手動貼上文字；可選擇性用 Playwright 重用登入 session 自動擷取（見「⚠️ Facebook 內容擷取」，有帳號風險，非預設啟用）
+- LinkedIn 不自動爬取，需手動貼上文字（長期方案，非過渡措施）
 - 無瀏覽器擴充功能 / App 分享選單整合（Slack 頻道是目前的低摩擦入口）
 - 單人使用，無登入機制——若要公開部署，需自行加上存取控制
 - 同步處理（提交當下直接跑完擷取+摘要），未使用非同步 job queue

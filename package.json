@@ -11,7 +11,8 @@
     "test": "vitest run",
     "db:migrate": "prisma migrate dev && prisma generate",
     "db:seed": "prisma db seed",
-    "import:bulk": "tsx scripts/bulk-import.ts"
+    "import:bulk": "tsx scripts/bulk-import.ts",
+    "facebook:login": "tsx scripts/facebook-login.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",
@@ -22,6 +23,7 @@
     "dotenv": "^17.4.2",
     "jsdom": "^30.0.1",
     "next": "16.3.1",
+    "playwright": "^1.62.1",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "zod": "^4.4.3"

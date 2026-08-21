@@ -3,6 +3,7 @@ import { extractYoutube } from "./youtube";
 import { extractTiktok } from "./tiktok";
 import { extractGeneric } from "./generic";
 import { extractManual } from "./manual";
+import { extractFacebookPlaywright, isFacebookPlaywrightConfigured } from "./facebookPlaywright";
 
 export { detectSourceType } from "@/lib/url";
 
@@ -26,7 +27,16 @@ export async function extractContent(
         return await extractYoutube(url);
       case "TIKTOK":
         return await extractTiktok(url);
-      case "FACEBOOK":
+      case "FACEBOOK": {
+        // Opt-in only: falls back to manual paste unless the user has run
+        // `npm run facebook:login` to save a reusable session. See
+        // facebookPlaywright.ts for the risk disclosure.
+        if (isFacebookPlaywrightConfigured()) {
+          const result = await extractFacebookPlaywright(url);
+          if (result.status === "SUCCESS") return result;
+        }
+        return extractManual(manualText);
+      }
       case "LINKEDIN":
         return extractManual(manualText);
       case "GOOGLE_SCHOLAR":

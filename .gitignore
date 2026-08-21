@@ -38,6 +38,9 @@ yarn-error.log*
 /dev.db
 /dev.db-journal
 
+# Facebook Playwright session — contains live login cookies, never commit
+facebook-session.json
+
 # vercel
 .vercel
 
