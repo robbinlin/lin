@@ -7,15 +7,19 @@ import { SearchBar } from "@/components/SearchBar";
 
 export const dynamic = "force-dynamic";
 
-type SearchParams = Promise<{ category?: string; q?: string; page?: string }>;
+type SearchParams = Promise<{ category?: string; uncategorized?: string; q?: string; page?: string }>;
 
 export default async function LibraryPage({ searchParams }: { searchParams: SearchParams }) {
-  const { category, q, page: pageParam } = await searchParams;
+  const { category, uncategorized, q, page: pageParam } = await searchParams;
   const page = Math.max(1, Number(pageParam) || 1);
   const limit = 20;
 
   const where: Record<string, unknown> = {};
-  if (category) where.category = { slug: category };
+  if (uncategorized) {
+    where.categoryId = null;
+  } else if (category) {
+    where.category = { slug: category };
+  }
   if (q) {
     where.OR = [
       { title: { contains: q } },
@@ -24,7 +28,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
     ];
   }
 
-  const [items, total, categoriesWithCount] = await Promise.all([
+  const [items, total, categoriesWithCount, uncategorizedCount] = await Promise.all([
     prisma.link.findMany({
       where,
       include: { category: true },
@@ -34,6 +38,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
     }),
     prisma.link.count({ where }),
     getCategoriesWithCount(),
+    prisma.link.count({ where: { categoryId: null } }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / limit));
@@ -44,7 +49,7 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
 
       <div className="mt-4 flex flex-col gap-6 md:flex-row">
         <aside className="w-full shrink-0 md:w-48">
-          <CategoryFilter categories={categoriesWithCount} />
+          <CategoryFilter categories={categoriesWithCount} uncategorizedCount={uncategorizedCount} />
         </aside>
 
         <div className="flex-1">
