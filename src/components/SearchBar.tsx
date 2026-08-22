@@ -23,7 +23,7 @@ export function SearchBar() {
     <form onSubmit={handleSubmit} className="flex gap-2">
       <input
         type="search"
-        placeholder="搜尋標題、摘要、內容…"
+        placeholder="搜尋標題、摘要、內容、網址…（例如搜尋網域可以一次找出同來源的連結）"
         value={value}
         onChange={(e) => setValue(e.target.value)}
         className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none"

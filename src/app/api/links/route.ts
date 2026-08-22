@@ -74,6 +74,7 @@ export async function GET(request: NextRequest) {
       { title: { contains: q } },
       { summary: { contains: q } },
       { rawContent: { contains: q } },
+      { url: { contains: q } },
     ];
   }
 

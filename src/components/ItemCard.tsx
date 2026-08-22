@@ -11,12 +11,37 @@ const SOURCE_LABELS: Record<string, string> = {
   GENERIC_WEB: "網頁",
 };
 
-export function ItemCard({ item }: { item: LinkItem }) {
+export function ItemCard({
+  item,
+  selectable,
+  selected,
+  onToggleSelect,
+}: {
+  item: LinkItem;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
+}) {
   return (
     <Link
       href={`/item/${item.id}`}
-      className="block rounded-lg border border-gray-200 p-4 transition hover:border-blue-400 hover:shadow-sm"
+      className="relative block rounded-lg border border-gray-200 p-4 pr-10 transition hover:border-blue-400 hover:shadow-sm"
     >
+      {selectable && (
+        <input
+          type="checkbox"
+          checked={!!selected}
+          onChange={() => {}}
+          onClick={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            onToggleSelect?.(item.id);
+          }}
+          aria-label="選取這筆收藏"
+          className="absolute right-4 top-4 h-4 w-4 cursor-pointer"
+        />
+      )}
+
       <div className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
         <span className="font-medium">{SOURCE_LABELS[item.sourceType] ?? item.sourceType}</span>
         <span>·</span>
