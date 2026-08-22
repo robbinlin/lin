@@ -21,11 +21,11 @@ export function ItemCard({ item }: { item: LinkItem }) {
         <span className="font-medium">{SOURCE_LABELS[item.sourceType] ?? item.sourceType}</span>
         <span>·</span>
         <span>{new Date(item.createdAt).toLocaleDateString()}</span>
-        {item.category && (
-          <span className="rounded-full bg-purple-100 px-2 py-0.5 font-medium text-purple-700">
-            {item.category.name}
+        {item.categories.map((c) => (
+          <span key={c.id} className="rounded-full bg-purple-100 px-2 py-0.5 font-medium text-purple-700">
+            {c.name}
           </span>
-        )}
+        ))}
       </div>
 
       <h3 className="mt-1 line-clamp-2 font-medium text-gray-900">

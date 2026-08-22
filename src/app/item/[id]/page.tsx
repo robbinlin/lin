@@ -11,7 +11,7 @@ type Params = Promise<{ id: string }>;
 
 export default async function ItemPage({ params }: { params: Params }) {
   const { id } = await params;
-  const link = await prisma.link.findUnique({ where: { id }, include: { category: true } });
+  const link = await prisma.link.findUnique({ where: { id }, include: { categories: true } });
   if (!link) notFound();
 
   const item = serializeLink(link);
@@ -22,11 +22,11 @@ export default async function ItemPage({ params }: { params: Params }) {
       <div className="flex flex-wrap items-center gap-2">
         <ExtractionStatusBadge status={item.extractionStatus} />
         <LLMStatusBadge status={item.llmStatus} />
-        {item.category && (
-          <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-            {item.category.name}
+        {item.categories.map((c) => (
+          <span key={c.id} className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+            {c.name}
           </span>
-        )}
+        ))}
       </div>
 
       <h1 className="mt-2 text-xl font-semibold">{item.title || item.url}</h1>

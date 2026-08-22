@@ -7,7 +7,7 @@ type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, { params }: Params) {
   const { id } = await params;
-  const link = await prisma.link.findUnique({ where: { id }, include: { category: true } });
+  const link = await prisma.link.findUnique({ where: { id }, include: { categories: true } });
   if (!link) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
@@ -18,11 +18,12 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   const { id } = await params;
   const body = await request.json();
   const manualText = typeof body.manualText === "string" ? body.manualText : undefined;
-  // categoryId lets the UI quick-categorize a link with no extracted content
+  // categoryIds lets the UI quick-categorize a link with no extracted content
   // at all (e.g. TikTok/Facebook that couldn't be read) — it's a plain field
-  // update, deliberately not routed through processLink().
-  const categoryId = Object.prototype.hasOwnProperty.call(body, "categoryId")
-    ? (body.categoryId as string | null)
+  // update (full replace of the tag set), deliberately not routed through
+  // processLink().
+  const categoryIds = Array.isArray(body.categoryIds)
+    ? body.categoryIds.filter((cid: unknown): cid is string => typeof cid === "string")
     : undefined;
 
   const existing = await prisma.link.findUnique({ where: { id } });
@@ -30,14 +31,17 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  if (categoryId !== undefined) {
-    if (categoryId !== null) {
-      const category = await prisma.category.findUnique({ where: { id: categoryId } });
-      if (!category) {
+  if (categoryIds !== undefined) {
+    if (categoryIds.length > 0) {
+      const found = await prisma.category.findMany({ where: { id: { in: categoryIds } } });
+      if (found.length !== categoryIds.length) {
         return NextResponse.json({ error: "Category not found" }, { status: 400 });
       }
     }
-    await prisma.link.update({ where: { id }, data: { categoryId } });
+    await prisma.link.update({
+      where: { id },
+      data: { categories: { set: categoryIds.map((cid: string) => ({ id: cid })) } },
+    });
   }
 
   if (manualText !== undefined) {
@@ -45,7 +49,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
     await processLink(id);
   }
 
-  const result = await prisma.link.findUniqueOrThrow({ where: { id }, include: { category: true } });
+  const result = await prisma.link.findUniqueOrThrow({ where: { id }, include: { categories: true } });
   return NextResponse.json(serializeLink(result));
 }
 

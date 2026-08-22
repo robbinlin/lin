@@ -1,9 +1,9 @@
 import type { Link, Category } from "@/generated/prisma/client";
 import type { LinkItem } from "@/types";
 
-export type LinkWithCategory = Link & { category: Category | null };
+export type LinkWithCategories = Link & { categories: Category[] };
 
-export function serializeLink(link: LinkWithCategory): LinkItem {
+export function serializeLink(link: LinkWithCategories): LinkItem {
   return {
     id: link.id,
     url: link.url,
@@ -18,7 +18,7 @@ export function serializeLink(link: LinkWithCategory): LinkItem {
     keyPoints: link.keyPoints ? (JSON.parse(link.keyPoints) as string[]) : [],
     tags: link.tags ? (JSON.parse(link.tags) as string[]) : [],
     language: link.language,
-    category: link.category ? { id: link.category.id, name: link.category.name, slug: link.category.slug } : null,
+    categories: link.categories.map((c) => ({ id: c.id, name: c.name, slug: c.slug })),
     createdAt: link.createdAt.toISOString(),
     updatedAt: link.updatedAt.toISOString(),
   };

@@ -51,7 +51,7 @@ export interface LinkItem {
   keyPoints: string[];
   tags: string[];
   language: string | null;
-  category: CategoryInfo | null;
+  categories: CategoryInfo[];
   createdAt: string;
   updatedAt: string;
 }

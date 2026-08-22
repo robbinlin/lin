@@ -67,12 +67,12 @@ async function handleOneLink(rawUrl: string, channel: string, threadTs: string):
   const url = normalizeUrl(rawUrl);
   const sourceType = detectSourceType(url);
 
-  let link = await prisma.link.findUnique({ where: { url }, include: { category: true } });
+  let link = await prisma.link.findUnique({ where: { url }, include: { categories: true } });
 
   if (!link) {
     const created = await prisma.link.create({ data: { url, sourceType } });
     await processLink(created.id);
-    link = await prisma.link.findUniqueOrThrow({ where: { id: created.id }, include: { category: true } });
+    link = await prisma.link.findUniqueOrThrow({ where: { id: created.id }, include: { categories: true } });
   }
 
   await postSlackMessage({ channel, threadTs, text: formatSlackReply(link) });
@@ -87,7 +87,7 @@ function formatSlackReply(link: {
   extractionError: string | null;
   llmStatus: string;
   llmError: string | null;
-  category: { name: string } | null;
+  categories: { name: string }[];
 }): string {
   const appUrl = process.env.APP_URL;
   const detailLink = appUrl ? `\n<${appUrl}/item/${link.id}|查看詳情>` : "";
@@ -103,7 +103,7 @@ function formatSlackReply(link: {
     return `⚠️ *${link.title ?? link.url}*\n內容已擷取，但摘要失敗：${link.llmError ?? "未知錯誤"}${detailLink}`;
   }
   if (link.summary) {
-    const category = link.category ? `\n分類：${link.category.name}` : "";
+    const category = link.categories.length > 0 ? `\n分類：${link.categories.map((c) => c.name).join("、")}` : "";
     return `✅ *${link.title ?? link.url}*${category}\n${link.summary}${detailLink}`;
   }
   return `已收到，處理中…${detailLink}`;

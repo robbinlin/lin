@@ -14,6 +14,6 @@ export async function POST(_request: NextRequest, { params }: Params) {
 
   await processLink(id);
 
-  const result = await prisma.link.findUniqueOrThrow({ where: { id }, include: { category: true } });
+  const result = await prisma.link.findUniqueOrThrow({ where: { id }, include: { categories: true } });
   return NextResponse.json(serializeLink(result));
 }

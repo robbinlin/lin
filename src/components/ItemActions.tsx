@@ -57,8 +57,12 @@ export function ItemActions({
 
   return (
     <div className="mt-6 flex flex-col gap-4">
-      {(needsManual || extractionFailed) && !item.category && (
-        <CategoryQuickPick linkId={item.id} categories={categories} />
+      {(needsManual || extractionFailed) && (
+        <CategoryQuickPick
+          linkId={item.id}
+          categories={categories}
+          selectedIds={item.categories.map((c) => c.id)}
+        />
       )}
 
       {(needsManual || extractionFailed) && (

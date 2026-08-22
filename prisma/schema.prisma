@@ -26,15 +26,13 @@ model Link {
   tags      String?
   language  String?
 
-  category   Category? @relation(fields: [categoryId], references: [id])
-  categoryId String?
+  categories Category[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([extractionStatus])
   @@index([llmStatus])
-  @@index([categoryId])
 }
 
 model Category {

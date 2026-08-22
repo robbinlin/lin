@@ -3,30 +3,30 @@
 import type { CategoryWithCount } from "@/types";
 
 /**
- * Controlled, single-select hashtag row. Pure UI — no network calls, unlike
+ * Controlled, multi-select hashtag row. Pure UI — no network calls, unlike
  * CategoryQuickPick (which fires a PATCH immediately). Used where the choice
  * needs to be bundled into a larger submit, e.g. the link submit form.
  */
 export function CategoryPicker({
   categories,
-  selectedId,
-  onSelect,
+  selectedIds,
+  onToggle,
 }: {
   categories: CategoryWithCount[];
-  selectedId: string | null;
-  onSelect: (id: string | null) => void;
+  selectedIds: string[];
+  onToggle: (id: string) => void;
 }) {
   if (categories.length === 0) return null;
 
   return (
     <div className="flex flex-wrap gap-2">
       {categories.map((c) => {
-        const selected = c.id === selectedId;
+        const selected = selectedIds.includes(c.id);
         return (
           <button
             key={c.id}
             type="button"
-            onClick={() => onSelect(selected ? null : c.id)}
+            onClick={() => onToggle(c.id)}
             className={
               selected
                 ? "rounded-full bg-purple-600 px-3 py-1 text-sm font-medium text-white"

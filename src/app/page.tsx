@@ -11,7 +11,7 @@ export default async function Home() {
     prisma.link.findMany({
       orderBy: { createdAt: "desc" },
       take: 8,
-      include: { category: true },
+      include: { categories: true },
     }),
     getCategoriesWithCount(),
   ]);

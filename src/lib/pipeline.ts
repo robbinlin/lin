@@ -40,7 +40,7 @@ export async function processLink(linkId: string): Promise<void> {
  * captured as status fields on the row, same as processLink().
  */
 export async function summarizeLink(linkId: string): Promise<void> {
-  const link = await prisma.link.findUniqueOrThrow({ where: { id: linkId } });
+  const link = await prisma.link.findUniqueOrThrow({ where: { id: linkId }, include: { categories: true } });
 
   if (!link.rawContent) {
     return;
@@ -54,13 +54,13 @@ export async function summarizeLink(linkId: string): Promise<void> {
       content: link.rawContent,
     });
 
-    // A category picked by the user at submit time (or via quick-categorize)
-    // always wins — the LLM's classification only fills in categoryId when
-    // nothing was chosen yet.
-    let categoryId = link.categoryId;
-    if (!categoryId) {
+    // Categories picked by the user (at submit time, or via quick-categorize)
+    // always win — the LLM's classification only fills one in when the user
+    // hasn't chosen any yet.
+    let categoryIds = link.categories.map((c) => c.id);
+    if (categoryIds.length === 0) {
       const category = await findOrCreateCategory(result.category);
-      categoryId = category.id;
+      categoryIds = [category.id];
     }
 
     await prisma.link.update({
@@ -72,7 +72,7 @@ export async function summarizeLink(linkId: string): Promise<void> {
         keyPoints: JSON.stringify(result.keyPoints),
         tags: JSON.stringify(result.tags),
         language: result.language,
-        categoryId,
+        categories: { set: categoryIds.map((id) => ({ id })) },
       },
     });
   } catch (err) {

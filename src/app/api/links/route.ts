@@ -8,15 +8,17 @@ export async function POST(request: NextRequest) {
   const body = await request.json();
   const rawUrl = typeof body.url === "string" ? body.url : "";
   const manualText = typeof body.manualText === "string" ? body.manualText : null;
-  const categoryId = typeof body.categoryId === "string" ? body.categoryId : null;
+  const categoryIds = Array.isArray(body.categoryIds)
+    ? body.categoryIds.filter((id: unknown): id is string => typeof id === "string")
+    : [];
 
   if (!isValidUrl(rawUrl)) {
     return NextResponse.json({ error: "A valid http(s) URL is required" }, { status: 400 });
   }
 
-  if (categoryId) {
-    const category = await prisma.category.findUnique({ where: { id: categoryId } });
-    if (!category) {
+  if (categoryIds.length > 0) {
+    const found = await prisma.category.findMany({ where: { id: { in: categoryIds } } });
+    if (found.length !== categoryIds.length) {
       return NextResponse.json({ error: "Category not found" }, { status: 400 });
     }
   }
@@ -29,19 +31,24 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "This URL has already been saved", id: existing.id }, { status: 409 });
   }
 
-  // A category picked at submit time (e.g. via the quick hashtag picker) is
+  // Categories picked at submit time (e.g. via the quick hashtag picker) are
   // preserved through processLink() below even if extraction/LLM succeeds —
   // see pipeline.ts, which only lets the LLM's classification apply when no
   // category was set yet.
   const link = await prisma.link.create({
-    data: { url, sourceType, manualText, categoryId },
+    data: {
+      url,
+      sourceType,
+      manualText,
+      categories: categoryIds.length > 0 ? { connect: categoryIds.map((id: string) => ({ id })) } : undefined,
+    },
   });
 
   await processLink(link.id);
 
   const result = await prisma.link.findUniqueOrThrow({
     where: { id: link.id },
-    include: { category: true },
+    include: { categories: true },
   });
 
   return NextResponse.json(serializeLink(result), { status: 201 });
@@ -57,7 +64,7 @@ export async function GET(request: NextRequest) {
 
   const where: Record<string, unknown> = {};
   if (categorySlug) {
-    where.category = { slug: categorySlug };
+    where.categories = { some: { slug: categorySlug } };
   }
   if (status) {
     where.extractionStatus = status;
@@ -73,7 +80,7 @@ export async function GET(request: NextRequest) {
   const [items, total] = await Promise.all([
     prisma.link.findMany({
       where,
-      include: { category: true },
+      include: { categories: true },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,

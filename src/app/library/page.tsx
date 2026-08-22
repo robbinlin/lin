@@ -16,9 +16,9 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
 
   const where: Record<string, unknown> = {};
   if (uncategorized) {
-    where.categoryId = null;
+    where.categories = { none: {} };
   } else if (category) {
-    where.category = { slug: category };
+    where.categories = { some: { slug: category } };
   }
   if (q) {
     where.OR = [
@@ -31,14 +31,14 @@ export default async function LibraryPage({ searchParams }: { searchParams: Sear
   const [items, total, categoriesWithCount, uncategorizedCount] = await Promise.all([
     prisma.link.findMany({
       where,
-      include: { category: true },
+      include: { categories: true },
       orderBy: { createdAt: "desc" },
       skip: (page - 1) * limit,
       take: limit,
     }),
     prisma.link.count({ where }),
     getCategoriesWithCount(),
-    prisma.link.count({ where: { categoryId: null } }),
+    prisma.link.count({ where: { categories: { none: {} } } }),
   ]);
 
   const totalPages = Math.max(1, Math.ceil(total / limit));

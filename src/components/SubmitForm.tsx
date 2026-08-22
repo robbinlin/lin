@@ -11,7 +11,7 @@ export function SubmitForm({ categories }: { categories: CategoryWithCount[] }) 
   const router = useRouter();
   const [url, setUrl] = useState("");
   const [manualText, setManualText] = useState("");
-  const [categoryId, setCategoryId] = useState<string | null>(null);
+  const [categoryIds, setCategoryIds] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<LinkItem | null>(null);
@@ -32,7 +32,7 @@ export function SubmitForm({ categories }: { categories: CategoryWithCount[] }) 
         body: JSON.stringify({
           url,
           manualText: manualText || undefined,
-          categoryId: categoryId || undefined,
+          categoryIds,
         }),
       });
       const data = await res.json();
@@ -43,7 +43,7 @@ export function SubmitForm({ categories }: { categories: CategoryWithCount[] }) 
       setResult(data as LinkItem);
       setUrl("");
       setManualText("");
-      setCategoryId(null);
+      setCategoryIds([]);
       router.refresh();
     } catch {
       setError("網路錯誤，請稍後再試");
@@ -85,9 +85,15 @@ export function SubmitForm({ categories }: { categories: CategoryWithCount[] }) 
 
         <div className="flex flex-col gap-1.5">
           <span className="text-xs text-gray-500">
-            先選好分類（選填）——就算之後內容抓不到、AI 也無法摘要，這個分類還是會保留
+            先選好分類（選填，可以選多個）——就算之後內容抓不到、AI 也無法摘要，這些分類還是會保留
           </span>
-          <CategoryPicker categories={categories} selectedId={categoryId} onSelect={setCategoryId} />
+          <CategoryPicker
+            categories={categories}
+            selectedIds={categoryIds}
+            onToggle={(id) =>
+              setCategoryIds((prev) => (prev.includes(id) ? prev.filter((c) => c !== id) : [...prev, id]))
+            }
+          />
         </div>
       </form>
 
@@ -98,11 +104,11 @@ export function SubmitForm({ categories }: { categories: CategoryWithCount[] }) 
           <div className="flex flex-wrap items-center gap-2">
             <ExtractionStatusBadge status={result.extractionStatus} />
             <LLMStatusBadge status={result.llmStatus} />
-            {result.category && (
-              <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
-                {result.category.name}
+            {result.categories.map((c) => (
+              <span key={c.id} className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                {c.name}
               </span>
-            )}
+            ))}
           </div>
           {result.summary ? (
             <p className="mt-2 text-sm text-gray-700">{result.summary}</p>
