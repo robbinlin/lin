@@ -146,19 +146,41 @@ npm run lint    # ESLint
 
 ## 部署
 
-**必須部署到能安裝 `yt-dlp` 二進位檔、且能長時間執行 Node process 的主機**（VPS、Railway、Fly.io 等）——不建議部署到 Vercel 之類的 serverless 平台，因為 `yt-dlp` 無法在其預設 runtime 上安裝，YouTube/TikTok 字幕擷取會失效。
+**必須部署到能安裝 `yt-dlp` 二進位檔、且能長時間執行 Node process 的主機**（VPS、Railway、Fly.io 等）——不建議部署到 Vercel、Cloudflare Workers/Pages 之類的 serverless 平台：這類平台的 function 執行環境沒有完整 Node.js（裝不了 `yt-dlp`、`better-sqlite3` 這類原生模組/外部執行檔），檔案系統也不是持久化的（每次部署 SQLite 資料就會被重置）。
 
-部署主機需要：
-1. Node.js 20+
-2. `yt-dlp` 二進位檔（`apt install yt-dlp` 或 `pip install yt-dlp`）
-3. 環境變數：`DATABASE_URL`、`ANTHROPIC_API_KEY`、`CLAUDE_MODEL`（選填）、`YT_DLP_PATH`（選填）、`SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET`（若要用 Slack 整合）、`SLACK_CHANNEL_ID`/`APP_URL`（選填）、`FACEBOOK_SESSION_PATH`（選填，若要用 Facebook Playwright 擷取）
-4. 部署後執行一次 `npx prisma migrate deploy && npx prisma db seed`
-5. 若要用 Slack 整合，部署完成、拿到正式網域後，回到 Slack App 設定頁把 Event Subscriptions 的 Request URL 指向 `https://<正式網域>/api/slack/events`
-6. 若要用 Facebook Playwright 擷取，在該主機上執行 `npx playwright install chromium` 裝瀏覽器執行檔，再跑一次 `npm run facebook:login` 存 session（見上方「⚠️ Facebook 內容擷取」）
+repo 根目錄的 `Dockerfile` 已經處理好這些（裝 `yt-dlp`、`npm run build`、啟動時自動跑 `prisma migrate deploy` + `prisma db seed`），任何支援用 Dockerfile 部署的主機（Railway、Fly.io、VPS 上自己跑 `docker run`）都可以直接用。
+
+### 部署到 Railway（推薦）
+
+1. 到 [railway.app](https://railway.app) 用 GitHub 帳號登入。
+2. **New Project → Deploy from GitHub repo**，選這個 repo（`robbinlin/lin`）、選 `claude/link-summary-classifier-app-jxh2ax`（或之後合併進的正式分支）。Railway 會偵測到 `Dockerfile` 並自動用它建置，不用另外設定 build command。
+3. **加一個 Volume（非常重要，沒做這步資料會不見）**：進 Service → Settings → Volumes → New Volume，Mount path 填 `/data`。這是 SQLite 資料庫檔案要放的地方——沒有 Volume 的話，容器每次重啟/重新部署都會是全新的空檔案系統，之前存的連結會全部消失。
+4. 進 Service → Variables，加入環境變數：
+   - `DATABASE_URL` = `file:/data/prod.db` （對應上一步的 Volume 路徑）
+   - `ANTHROPIC_API_KEY` = 你的 Claude API key
+   - `CLAUDE_MODEL` = `claude-sonnet-5`（選填，不填會用預設值）
+   - 若要用 Slack：`SLACK_BOT_TOKEN`、`SLACK_SIGNING_SECRET`、`SLACK_CHANNEL_ID`（見下方「Slack 整合設定」）
+   - `APP_URL`：先留空，拿到網域後回來補（下一步）
+5. 設定完變數後 Railway 會自動重新部署。等它跑完，到 Service → Settings → Networking → **Generate Domain**，會拿到一個 `https://xxx.up.railway.app` 的公開網址。
+6. 回到 Variables，把 `APP_URL` 填成上一步拿到的網址，讓 Slack 回覆訊息能附上「查看詳情」連結。
+7. 若要用 Slack 整合，回到 [api.slack.com/apps](https://api.slack.com/apps) 你的 App 設定頁，把 Event Subscriptions 的 Request URL 改成 `https://xxx.up.railway.app/api/slack/events`。
+8. 打開 `https://xxx.up.railway.app` 應該就能看到網頁了；丟一個連結測試看看。
+
+**Facebook Playwright 擷取在 Railway 上預設不會啟用**——那個功能需要跳出真的瀏覽器視窗讓你手動登入一次（`npm run facebook:login`），但 Railway 是無頭的伺服器環境，沒有畫面可以顯示瀏覽器。沒設定 `FACEBOOK_SESSION_PATH`/session 檔案的話，Facebook 連結會照原本設計自動退回手動貼文字，不影響其他功能。
+
+### 部署到其他主機（Fly.io / VPS）
+
+只要主機支援 `Dockerfile` 部署，流程概念是一樣的：
+1. Node.js 20+ 的執行環境（Dockerfile 裡已經指定 `node:20-slim`）
+2. 一個持久化的檔案系統路徑，`DATABASE_URL` 指過去（VPS 上直接用本機路徑即可，不像 Railway 需要額外設定 Volume）
+3. 環境變數同上：`ANTHROPIC_API_KEY`、`CLAUDE_MODEL`（選填）、`SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET`/`SLACK_CHANNEL_ID`（選填）、`APP_URL`（選填）、`FACEBOOK_SESSION_PATH`（選填）
+4. VPS 上如果不想用 Docker，也可以照 Dockerfile 裡的步驟手動裝：Node 20+、`yt-dlp` 二進位檔、`npm ci && npm run build`，啟動時跑 `npx prisma migrate deploy && npx prisma db seed && npm run start`
+5. 若要用 Facebook Playwright 擷取，且主機有辦法跑圖形介面（或用 `xvfb` 之類的虛擬顯示），可以執行 `npx playwright install chromium` 裝瀏覽器執行檔，再跑 `npm run facebook:login`（見上方「⚠️ Facebook 內容擷取」）——多數雲端主機沒有這個條件，通常還是本機跑這個功能比較實際。
 
 ## 專案結構
 
 ```
+Dockerfile                 # 部署用（見「部署」— Railway/Fly.io/VPS 皆可用）
 prisma/schema.prisma       # Link / Category 資料表定義
 prisma/seed.ts             # 起始分類清單
 src/lib/extract/           # 依來源型別擷取內容（YouTube/TikTok/一般網頁/手動貼文/Facebook Playwright）

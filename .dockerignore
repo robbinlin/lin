@@ -1,0 +1,8 @@
+node_modules
+.next
+.git
+dev.db
+dev.db-journal
+facebook-session.json
+.env
+*.log
