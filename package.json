@@ -13,7 +13,8 @@
     "db:seed": "prisma db seed",
     "import:bulk": "tsx scripts/bulk-import.ts",
     "facebook:login": "tsx scripts/facebook-login.ts",
-    "retry:facebook": "tsx scripts/retry-facebook.ts"
+    "retry:facebook": "tsx scripts/retry-facebook.ts",
+    "resummarize": "tsx scripts/resummarize-pending.ts"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.115.0",

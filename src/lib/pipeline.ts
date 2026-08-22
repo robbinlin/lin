@@ -27,12 +27,31 @@ export async function processLink(linkId: string): Promise<void> {
     return;
   }
 
+  await summarizeLink(linkId);
+}
+
+/**
+ * Runs just the LLM summarization/classification step against a Link's
+ * already-stored `rawContent`, without re-running extraction. Use this to
+ * retry a link whose content was extracted fine but whose summary call
+ * failed (e.g. a missing API key) — re-extracting would waste a yt-dlp/
+ * Playwright/Readability call and risks clobbering already-good content if
+ * the source is flaky the second time around. Never throws — failures are
+ * captured as status fields on the row, same as processLink().
+ */
+export async function summarizeLink(linkId: string): Promise<void> {
+  const link = await prisma.link.findUniqueOrThrow({ where: { id: linkId } });
+
+  if (!link.rawContent) {
+    return;
+  }
+
   try {
     const result = await summarizeAndClassify({
       url: link.url,
       sourceType: link.sourceType,
-      title: extraction.title ?? link.title,
-      content: extraction.content,
+      title: link.title,
+      content: link.rawContent,
     });
 
     // A category picked by the user at submit time (or via quick-categorize)
