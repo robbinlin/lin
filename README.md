@@ -9,7 +9,7 @@
 - **Next.js 16**（App Router, TypeScript）— 前端 + API routes 合一
 - **SQLite + Prisma 7** — 單一資料庫檔案，免另架服務
 - **Claude API**（`@anthropic-ai/sdk`，預設 `claude-sonnet-5`）— 摘要與分類，使用結構化輸出
-- **yt-dlp** — YouTube / TikTok 字幕擷取
+- **yt-dlp** — YouTube / TikTok 字幕擷取；可選擇性搭配 **Gemini API**（見下方「🎬 影片內容理解」）在字幕抓不到/太薄弱時直接分析影片畫面與聲音
 - **@mozilla/readability + jsdom** — 一般網頁 / Google Scholar 正文擷取
 - **Slack Events API**（即時 webhook）— 把連結丟進指定頻道即可觸發處理，簽章驗證 + 串內回覆
 - Facebook 預設不自動爬取，改為手動貼上貼文文字；可選擇性啟用 **Playwright**（見下方「⚠️ Facebook 內容擷取」）用你自己登入的帳號嘗試自動擷取，失敗時仍會退回手動貼文字
@@ -117,6 +117,24 @@ npm run resummarize
 
 會找出所有已經有擷取內容、但 `llmStatus` 不是成功的連結（不限來源，YouTube/一般網頁/Facebook 都算），**只重跑摘要這一步**、不重新擷取內容（避免浪費一次 yt-dlp/Playwright 呼叫，也不會有「這次重新擷取反而失敗，把原本抓到的內容洗掉」的風險）。同樣支援 `--limit`／`--delay`，可安全中斷重跑。
 
+## 🎬 影片內容理解（選用，需要 Gemini API key）
+
+YouTube/TikTok 預設靠 `yt-dlp` 抓字幕——但很多短片根本沒上字幕，或 TikTok 直接擋掉擷取，這種情況下就算擷取「成功」，內容也很薄弱（甚至完全沒有），摘要品質會很差或直接卡在待補文字。
+
+這裡提供一個**選用**的備援：用 [Gemini API](https://ai.google.dev/gemini-api) 直接「看」影片本身的畫面跟聲音內容（不只是字幕），效果比純文字字幕好很多，也能處理完全沒字幕的影片。
+
+**運作方式**：字幕擷取失敗，或抓到的內容太短（判斷為「太薄弱不足以摘要」）時，若有設定 `GEMINI_API_KEY`，才會嘗試用 Gemini 分析影片；分析出來的文字內容會接著走原本既有的 Claude 摘要/分類流程，不會改變其他部分。YouTube 連結可以直接丟給 Gemini 分析；TikTok 則會先用 `yt-dlp` 把影片檔案本身下載下來（限制 50MB，避免下載過大的檔案），上傳給 Gemini 分析完就刪除，不會留在本機或 Google 那邊。沒設定這組 API key 的話，行為跟現在完全一樣，不受影響。
+
+**設定方式**：
+
+1. 到 [aistudio.google.com/apikey](https://aistudio.google.com/apikey) 申請一組 Gemini API key（跟 `ANTHROPIC_API_KEY` 是不同帳號、不同金鑰，Google 有提供免費額度但有流量限制）。
+2. 填入 `.env` 的 `GEMINI_API_KEY`。
+3. `GEMINI_MODEL`（選填）可以指定要用的 Gemini 模型，預設 `gemini-2.5-flash`；Google 之後推出更新的模型可以改這裡，不用改程式碼。
+
+**費用提醒**：分析影片內容消耗的 token 明顯比純文字摘要多（尤其是比較長的影片），建議先設定好之後用一兩個先前抓不到內容的連結小量測試，觀察一下額度消耗再決定要不要大量使用。
+
+**不想用了怎麼辦：** 把 `GEMINI_API_KEY` 留空或刪除即可，系統會自動跳過這條路徑，退回原本「字幕抓不到就待補文字/擷取失敗」的行為。
+
 ## Slack 整合設定
 
 丟連結給 Slack 機器人比開網頁貼上更順手，尤其是手機上用分享選單。設定一次即可：
@@ -160,6 +178,7 @@ repo 根目錄的 `Dockerfile` 已經處理好這些（裝 `yt-dlp`、`npm run b
    - `ANTHROPIC_API_KEY` = 你的 Claude API key
    - `CLAUDE_MODEL` = `claude-sonnet-5`（選填，不填會用預設值）
    - 若要用 Slack：`SLACK_BOT_TOKEN`、`SLACK_SIGNING_SECRET`、`SLACK_CHANNEL_ID`（見下方「Slack 整合設定」）
+   - 若要用 Gemini 影片理解：`GEMINI_API_KEY`（見上方「🎬 影片內容理解」，選填）
    - `APP_URL`：先留空，拿到網域後回來補（下一步）
 5. 設定完變數後 Railway 會自動重新部署。等它跑完，到 Service → Settings → Networking → **Generate Domain**，會拿到一個 `https://xxx.up.railway.app` 的公開網址。
 6. 回到 Variables，把 `APP_URL` 填成上一步拿到的網址，讓 Slack 回覆訊息能附上「查看詳情」連結。
@@ -173,7 +192,7 @@ repo 根目錄的 `Dockerfile` 已經處理好這些（裝 `yt-dlp`、`npm run b
 只要主機支援 `Dockerfile` 部署，流程概念是一樣的：
 1. Node.js 20+ 的執行環境（Dockerfile 裡已經指定 `node:20-slim`）
 2. 一個持久化的檔案系統路徑，`DATABASE_URL` 指過去（VPS 上直接用本機路徑即可，不像 Railway 需要額外設定 Volume）
-3. 環境變數同上：`ANTHROPIC_API_KEY`、`CLAUDE_MODEL`（選填）、`SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET`/`SLACK_CHANNEL_ID`（選填）、`APP_URL`（選填）、`FACEBOOK_SESSION_PATH`（選填）
+3. 環境變數同上：`ANTHROPIC_API_KEY`、`CLAUDE_MODEL`（選填）、`SLACK_BOT_TOKEN`/`SLACK_SIGNING_SECRET`/`SLACK_CHANNEL_ID`（選填）、`APP_URL`（選填）、`FACEBOOK_SESSION_PATH`（選填）、`GEMINI_API_KEY`/`GEMINI_MODEL`（選填，見「🎬 影片內容理解」）
 4. VPS 上如果不想用 Docker，也可以照 Dockerfile 裡的步驟手動裝：Node 20+、`yt-dlp` 二進位檔、`npm ci && npm run build`，啟動時跑 `npx prisma migrate deploy && npx prisma db seed && npm run start`
 5. 若要用 Facebook Playwright 擷取，且主機有辦法跑圖形介面（或用 `xvfb` 之類的虛擬顯示），可以執行 `npx playwright install chromium` 裝瀏覽器執行檔，再跑 `npm run facebook:login`（見上方「⚠️ Facebook 內容擷取」）——多數雲端主機沒有這個條件，通常還是本機跑這個功能比較實際。
 
@@ -193,7 +212,7 @@ src/app/                    # 首頁（提交）、/library（瀏覽/搜尋/篩�
 
 ## MVP 範圍外（已知限制）
 
-- 無字幕影片不做語音轉文字（可能之後加 Whisper API）
+- 無字幕影片預設不處理；可選擇性設定 `GEMINI_API_KEY` 用 Gemini 直接分析影片畫面/聲音（見「🎬 影片內容理解」，非預設啟用，需自行申請 API key、注意費用）
 - Facebook 預設不自動爬取，需手動貼上文字；可選擇性用 Playwright 重用登入 session 自動擷取（見「⚠️ Facebook 內容擷取」，有帳號風險，非預設啟用）
 - LinkedIn 不自動爬取，需手動貼上文字（長期方案，非過渡措施）
 - 無瀏覽器擴充功能 / App 分享選單整合（Slack 頻道是目前的低摩擦入口）
